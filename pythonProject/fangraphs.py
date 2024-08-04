@@ -1,5 +1,7 @@
 import requests
 import pandas as pd
+from datetime import datetime
+
 
 def get_mlb_game_data(year):
     base_url = 'https://statsapi.mlb.com/api/v1/schedule'
@@ -26,15 +28,20 @@ def get_mlb_game_data(year):
             game_data = game_response.json()
 
             if 'teams' in game_data and 'home' in game_data['teams'] and 'away' in game_data['teams']:
+                game_datetime = datetime.strptime(game['gameDate'], '%Y-%m-%dT%H:%M:%SZ')
+                game_time = game_datetime.strftime('%Y-%m-%d %H:%M:%S')
+
                 home_stats = game_data['teams']['home']['teamStats']['batting']
                 away_stats = game_data['teams']['away']['teamStats']['batting']
 
                 for team, stats in [('Home', home_stats), ('Away', away_stats)]:
                     singles = stats['hits'] - (stats['doubles'] + stats['triples'] + stats['homeRuns'])
                     total_bases = (singles + 2 * stats['doubles'] + 3 * stats['triples'] + 4 * stats['homeRuns'])
+                    slugging_pct = total_bases / stats['atBats'] if stats['atBats'] > 0 else 0
 
                     game_info = {
                         'Date': game['officialDate'],
+                        'Time': game_time,
                         'Location': game['venue']['name'],
                         'Team': game['teams'][team.lower()]['team']['name'],
                         'Opponent': game['teams']['away' if team == 'Home' else 'home']['team']['name'],
@@ -43,11 +50,13 @@ def get_mlb_game_data(year):
                         'Doubles': stats['doubles'],
                         'Triples': stats['triples'],
                         'Home Runs': stats['homeRuns'],
-                        'Total Bases': total_bases
+                        'Total Bases': total_bases,
+                        'Slugging Pct': slugging_pct
                     }
                     games.append(game_info)
 
     return games
+
 
 # Collect data for each year from 2013 to 2023
 all_games = []
